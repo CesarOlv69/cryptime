@@ -1,633 +1,1222 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>CryptoScope</title>
+<title>Cryptime</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CryptoScope">
-<meta name="theme-color" content="#080c14">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23080c14'/><text y='70' x='50' text-anchor='middle' font-size='58' fill='%2300d4ff'>◈</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-title" content="Cryptime">
+<meta name="theme-color" content="#06080f">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Clash+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg:#080c14; --surface:#0d1421; --card:#111827;
-  --border:#1e2d45; --accent:#00d4ff; --accent2:#7c3aed;
-  --green:#00e5a0; --red:#ff4365; --gold:#f59e0b;
-  --text:#e2e8f0; --muted:#64748b;
-  --glow:0 0 30px rgba(0,212,255,0.15);
+  --bg: #06080f;
+  --s1: #0b0f1a;
+  --s2: #111827;
+  --s3: #1a2332;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --accent: #e8ff47;
+  --accent2: #ff6b35;
+  --blue: #4da6ff;
+  --green: #3dffa0;
+  --red: #ff4466;
+  --text: #f0f4ff;
+  --muted: #556070;
+  --muted2: #8899aa;
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-html{height:-webkit-fill-available;}
-body{
-  background:var(--bg);color:var(--text);
-  font-family:'Syne',sans-serif;
-  min-height:100vh;min-height:-webkit-fill-available;
-  overflow-x:hidden;-webkit-overflow-scrolling:touch;
-  padding-top:env(safe-area-inset-top);
-  padding-bottom:calc(20px + env(safe-area-inset-bottom));
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html { height: -webkit-fill-available; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
-body::before{
-  content:'';position:fixed;inset:0;
-  background-image:linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
-  background-size:40px 40px;pointer-events:none;z-index:0;
+
+/* ── NOISE OVERLAY ── */
+body::after {
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:999;
+  opacity:0.4;
 }
-.container{max-width:1200px;margin:0 auto;padding:0 16px;position:relative;z-index:1;}
 
-/* HEADER */
-header{padding:22px 16px 14px;position:relative;z-index:1;}
-.header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
-.logo{display:flex;align-items:center;gap:10px;}
-.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(–accent),var(–accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 20px rgba(0,212,255,0.3);}
-.logo-text{font-size:22px;font-weight:800;letter-spacing:-0.5px;background:linear-gradient(90deg,var(–accent),var(–accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.logo-sub{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);letter-spacing:2px;text-transform:uppercase;}
-.header-right{display:flex;align-items:center;gap:8px;}
-.status-wrap{display:flex;align-items:center;gap:6px;font-family:‘Space Mono’,monospace;font-size:10px;color:var(–muted);}
-.status-dot{width:7px;height:7px;border-radius:50%;background:var(–green);animation:pulse 2s infinite;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(1.3);}}
-
-.refresh-btn{
-display:flex;align-items:center;gap:5px;
-background:var(–card);border:1px solid var(–border);
-border-radius:8px;padding:7px 12px;
-color:var(–accent);font-family:‘Space Mono’,monospace;font-size:11px;
-cursor:pointer;transition:all 0.2s;white-space:nowrap;
+/* ── HEADER ── */
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: rgba(6,8,15,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
 }
-.refresh-btn:hover{border-color:var(–accent);background:rgba(0,212,255,0.05);}
-.refresh-btn:active{transform:scale(0.96);}
-.refresh-btn:disabled{opacity:0.5;cursor:not-allowed;}
-.refresh-icon{display:inline-block;font-size:14px;}
-.refresh-btn.spinning .refresh-icon{animation:spin 0.6s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
 
-/* CRYPTO LIST */
-.crypto-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:9px;margin:14px 0;}
-.crypto-card{
-background:var(–card);border:1px solid var(–border);
-border-radius:12px;padding:12px;cursor:pointer;
-transition:all 0.18s;position:relative;overflow:hidden;
+.logo {
+  font-family:'Clash Display',sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--accent);
 }
-.crypto-card::before{content:’’;position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,0.06),transparent);opacity:0;transition:opacity 0.2s;}
-.crypto-card:hover::before,.crypto-card.active::before{opacity:1;}
-.crypto-card.active{border-color:var(–accent);box-shadow:0 0 0 1px var(–accent),var(–glow);}
-.crypto-card:hover:not(.active){border-color:rgba(0,212,255,0.35);transform:translateY(-2px);}
-.crypto-header-row{display:flex;align-items:center;gap:7px;margin-bottom:7px;}
-.crypto-img{width:22px;height:22px;border-radius:50%;}
-.crypto-symbol{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);text-transform:uppercase;}
-.crypto-name-card{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.crypto-price-card{font-family:‘Space Mono’,monospace;font-size:12px;font-weight:700;margin-bottom:3px;}
-.crypto-change{font-family:‘Space Mono’,monospace;font-size:10px;font-weight:700;}
-.pos{color:var(–green);}.neg{color:var(–red);}
 
-/* STATS */
-.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:14px;}
-.stat-card{background:var(–card);border:1px solid var(–border);border-radius:12px;padding:13px;text-align:center;}
-.stat-label{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
-.stat-value{font-family:‘Space Mono’,monospace;font-size:12px;font-weight:700;color:var(–accent);}
-
-/* MAIN GRID */
-.main-grid{display:grid;grid-template-columns:1fr 340px;gap:14px;margin-bottom:14px;}
-@media(max-width:900px){.main-grid{grid-template-columns:1fr;}}
-
-/* CHART PANEL */
-.chart-panel{background:var(–card);border:1px solid var(–border);border-radius:16px;padding:18px;}
-.chart-panel-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
-.selected-crypto-info{display:flex;align-items:center;gap:10px;}
-.selected-img{width:36px;height:36px;border-radius:50%;}
-.selected-name{font-size:18px;font-weight:800;}
-.selected-price{font-family:‘Space Mono’,monospace;font-size:22px;font-weight:700;color:var(–accent);}
-.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-family:‘Space Mono’,monospace;font-size:11px;font-weight:700;margin-left:6px;}
-.badge-pos{background:rgba(0,229,160,0.15);color:var(–green);}
-.badge-neg{background:rgba(255,67,101,0.15);color:var(–red);}
-.period-tabs{display:flex;gap:5px;flex-wrap:wrap;}
-.period-btn{font-family:‘Space Mono’,monospace;font-size:10px;padding:5px 9px;border-radius:6px;border:1px solid var(–border);background:transparent;color:var(–muted);cursor:pointer;transition:all 0.15s;}
-.period-btn:hover{color:var(–text);border-color:var(–accent);}
-.period-btn.active{background:var(–accent);border-color:var(–accent);color:#000;font-weight:700;}
-.chart-wrap{position:relative;height:270px;}
-.chart-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(17,24,39,0.88);border-radius:8px;z-index:10;gap:10px;}
-.chart-overlay span{font-family:‘Space Mono’,monospace;font-size:10px;color:var(–muted);letter-spacing:1px;}
-.spinner{width:30px;height:30px;border:2px solid var(–border);border-top-color:var(–accent);border-radius:50%;animation:spin 0.7s linear infinite;}
-.chart-footer{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);text-align:center;margin-top:8px;letter-spacing:0.5px;min-height:14px;}
-
-/* SIMULATOR */
-.sim-panel{background:var(–card);border:1px solid var(–border);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px;}
-.sim-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px;}
-.sim-title span{background:linear-gradient(90deg,var(–gold),#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-.form-group{display:flex;flex-direction:column;gap:5px;}
-label{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);letter-spacing:1.5px;text-transform:uppercase;}
-input[type=“number”],input[type=“date”]{
-background:var(–surface);border:1px solid var(–border);border-radius:8px;
-padding:10px 12px;color:var(–text);
-font-family:‘Space Mono’,monospace;font-size:13px;
-width:100%;transition:border-color 0.2s;outline:none;-webkit-appearance:none;
+.logo em {
+  color: var(--muted2);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+  display: block;
+  letter-spacing: 1px;
+  font-family: 'DM Mono', monospace;
+  margin-top: -2px;
 }
-input:focus{border-color:var(–accent);}
-input[type=“date”]::-webkit-calendar-picker-indicator{filter:invert(0.4);}
-.date-hint{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);padding:0 2px;}
-.error-msg{background:rgba(255,67,101,0.1);border:1px solid rgba(255,67,101,0.3);border-radius:8px;padding:9px 12px;font-family:‘Space Mono’,monospace;font-size:10px;color:var(–red);display:none;}
-.error-msg.show{display:block;}
-.sim-btn{
-width:100%;padding:12px;
-background:linear-gradient(135deg,var(–accent),var(–accent2));
-border:none;border-radius:10px;
-color:#fff;font-family:‘Syne’,sans-serif;font-size:14px;font-weight:700;
-cursor:pointer;transition:all 0.2s;
-}
-.sim-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,212,255,0.3);}
-.sim-btn:active{transform:translateY(0);}
-.sim-btn:disabled{opacity:0.55;cursor:not-allowed;transform:none;box-shadow:none;}
-.sim-result{background:var(–surface);border-radius:12px;padding:14px;border:1px solid var(–border);display:none;animation:fadeIn 0.3s ease;}
-.sim-result.show{display:block;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-.result-pnl{text-align:center;padding:10px 0 8px;}
-.pnl-label{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;}
-.pnl-value{font-size:26px;font-weight:800;letter-spacing:-1px;}
-.pnl-pct{font-family:‘Space Mono’,monospace;font-size:13px;margin-top:2px;}
-.result-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(–border);}
-.result-row:last-child{border-bottom:none;}
-.rl{font-family:‘Space Mono’,monospace;font-size:9px;color:var(–muted);letter-spacing:1px;text-transform:uppercase;}
-.rv{font-family:‘Space Mono’,monospace;font-size:11px;font-weight:700;}
 
-@media(max-width:600px){
-.stats-row{grid-template-columns:1fr 1fr;}
-.selected-price{font-size:18px;}
-.crypto-list{grid-template-columns:repeat(auto-fill,minmax(135px,1fr));}
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--muted2);
+  letter-spacing: 0.5px;
 }
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 2s ease infinite;
+}
+
+@keyframes blink {
+  0%,100%{opacity:1} 50%{opacity:0.3}
+}
+
+/* ── TICKER SCROLL ── */
+.ticker-wrap {
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--s1);
+}
+
+.ticker-track {
+  display: flex;
+  gap: 0;
+  animation: ticker 30s linear infinite;
+  width: max-content;
+}
+
+.ticker-track:hover { animation-play-state: paused; }
+
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.ticker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  font-size: 12px;
+}
+
+.ticker-item:hover { background: var(--s2); }
+.ticker-item.active-ticker { background: var(--s2); }
+
+.ticker-sym { font-weight: 500; color: var(--text); }
+.ticker-price { color: var(--muted2); }
+.ticker-chg { font-weight: 500; font-size: 11px; }
+
+/* ── LAYOUT ── */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: calc(100vh - 95px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+@media (max-width: 768px) {
+  .app {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .sidebar { display: none; }
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  background: var(--s1);
+}
+
+.sidebar::-webkit-scrollbar { width: 0; }
+
+.coin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.coin-row::before {
+  content:'';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.coin-row:hover { background: var(--s2); }
+.coin-row.active { background: var(--s2); }
+.coin-row.active::before { opacity: 1; }
+
+.coin-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--s3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.coin-info { flex: 1; min-width: 0; }
+.coin-name { font-family:'Clash Display',sans-serif; font-size:13px; font-weight:600; }
+.coin-sym { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+
+.coin-right { text-align: right; }
+.coin-price { font-size: 13px; font-weight: 500; color: var(--text); }
+.coin-chg { font-size: 11px; font-weight: 500; }
+
+/* ── MAIN ── */
+.main {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.main::-webkit-scrollbar { width: 0; }
+
+/* ── COIN HERO ── */
+.coin-hero {
+  padding: 24px 24px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.hero-left { display:flex; align-items:center; gap:14px; }
+
+.hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--s2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  border: 1px solid var(--border2);
+}
+
+.hero-name {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.hero-sym {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+.hero-price-wrap { text-align: right; }
+
+.hero-price {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--accent);
+}
+
+.hero-chg-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.badge-g { background: rgba(61,255,160,0.12); color: var(--green); }
+.badge-r { background: rgba(255,68,102,0.12); color: var(--red); }
+
+/* ── PERIOD TABS ── */
+.period-row {
+  display: flex;
+  gap: 4px;
+  padding: 16px 24px 12px;
+  flex-wrap: wrap;
+}
+
+.p-btn {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted2);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+
+.p-btn:hover { color: var(--text); border-color: var(--border2); background: var(--s2); }
+
+.p-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 500;
+}
+
+/* ── CHART ── */
+.chart-box {
+  padding: 0 16px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chart-container {
+  position: relative;
+  height: 260px;
+}
+
+.chart-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6,8,15,0.85);
+  border-radius: 8px;
+  z-index: 10;
+  display: none;
+}
+
+.chart-overlay.show { display: flex; }
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── STATS ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px 24px;
+}
+
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .stats-row .stat:last-child { display:none; }
+}
+
+.stat {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stat-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.stat-val { font-size: 14px; font-weight: 500; color: var(--text); }
+
+/* ── SIMULATOR ── */
+.sim-section {
+  margin: 8px 24px 24px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.sim-header {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sim-header span { color: var(--accent2); }
+
+.sim-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 500px) {
+  .sim-grid { grid-template-columns: 1fr; }
+}
+
+.field label {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.field input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-appearance: none;
+}
+
+.field input:focus { border-color: var(--accent); }
+
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.4);
+}
+
+.sim-submit {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-family: 'Clash Display', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.sim-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+.sim-submit:active { transform: translateY(0); }
+.sim-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.sim-error {
+  font-size: 11px;
+  color: var(--red);
+  background: rgba(255,68,102,0.08);
+  border: 1px solid rgba(255,68,102,0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 10px 0 0;
+  display: none;
+}
+
+.sim-error.show { display: block; }
+
+/* ── RESULT ── */
+.sim-result {
+  margin-top: 14px;
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 16px;
+  display: none;
+  animation: fadeUp 0.3s ease;
+}
+
+.sim-result.show { display: block; }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.pnl-block {
+  text-align: center;
+  padding: 12px 0 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.pnl-amount {
+  font-family: 'Clash Display', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.pnl-pct {
+  font-size: 14px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.result-lines { display: flex; flex-direction: column; gap: 8px; }
+
+.r-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.r-line .rl { color: var(--muted); }
+.r-line .rv { font-weight: 500; color: var(--text); }
+
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 40px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 40px;
+  opacity: 0.3;
+}
+
+/* ── MOBILE COIN LIST ── */
+.mobile-list {
+  display: none;
+  padding: 12px;
+  overflow-x: auto;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-list::-webkit-scrollbar { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-list { display: flex; }
+}
+
+.mobile-coin-chip {
+  flex-shrink: 0;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  min-width: 80px;
+}
+
+.mobile-coin-chip.active {
+  border-color: var(--accent);
+  background: var(--s2);
+}
+
+.mcc-sym { font-size: 12px; font-weight: 500; }
+.mcc-icon { font-size: 20px; margin-bottom: 2px; }
+.mcc-chg { font-size: 10px; }
+
+/* scrollbar global */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 2px; }
 </style>
-
 </head>
 <body>
 
 <header>
-  <div class="header-inner">
-    <div class="logo">
-      <div class="logo-icon">◈</div>
-      <div>
-        <div class="logo-text">CryptoScope</div>
-        <div class="logo-sub">Données temps réel · CoinGecko</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="status-wrap">
-        <div class="status-dot"></div>
-        <span id="lastUpdate">—</span>
-      </div>
-      <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
-        <span class="refresh-icon" id="refreshIcon">↻</span>
-        <span>Refresh</span>
-      </button>
-    </div>
+  <div class="logo">
+    Cryptime
+    <em>BINANCE · TEMPS RÉEL</em>
+  </div>
+  <div class="live-badge">
+    <div class="live-dot"></div>
+    <span id="lastUpdate">—</span>
   </div>
 </header>
 
-<div class="container">
-
-  <div class="crypto-list" id="cryptoList">
-    <div style="grid-column:1/-1;text-align:center;padding:26px;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;">
-      Chargement des cryptos…
-    </div>
-  </div>
-
-  <div class="stats-row" id="statsRow" style="display:none">
-    <div class="stat-card"><div class="stat-label">Market Cap</div><div class="stat-value" id="statMcap">—</div></div>
-    <div class="stat-card"><div class="stat-label">Volume 24h</div><div class="stat-value" id="statVol">—</div></div>
-    <div class="stat-card"><div class="stat-label">ATH</div><div class="stat-value" id="statAth">—</div></div>
-  </div>
-
-  <div class="main-grid">
-
-```
-<div class="chart-panel">
-  <div class="chart-panel-header">
-    <div id="selectedInfo" style="color:var(--muted);font-size:13px;padding:6px 0;">← Sélectionnez une crypto</div>
-    <div class="period-tabs" id="periodTabs" style="display:none">
-      <button class="period-btn" data-days="30">1M</button>
-      <button class="period-btn" data-days="90">3M</button>
-      <button class="period-btn" data-days="180">6M</button>
-      <button class="period-btn active" data-days="365">1A</button>
-      <button class="period-btn" data-days="730">2A</button>
-      <button class="period-btn" data-days="max">Max</button>
-    </div>
-  </div>
-  <div class="chart-wrap">
-    <div class="chart-overlay" id="chartLoading" style="display:none">
-      <div class="spinner"></div>
-      <span>Chargement…</span>
-    </div>
-    <canvas id="priceChart"></canvas>
-  </div>
-  <div class="chart-footer" id="chartFooter"></div>
-</div>
-
-<div class="sim-panel">
-  <div class="sim-title">💰 <span>Simulateur d'investissement</span></div>
-
-  <div class="form-group">
-    <label>Montant investi ($)</label>
-    <input type="number" id="simAmount" placeholder="Ex : 1000" min="1" step="any">
-  </div>
-
-  <div class="form-group">
-    <label>Date d'achat</label>
-    <input type="date" id="simDate">
-    <div class="date-hint" id="dateHint">Sélectionnez d'abord une crypto</div>
-  </div>
-
-  <div class="error-msg" id="simError"></div>
-
-  <button class="sim-btn" id="simBtn" onclick="simulate()">
-    Calculer la plus-value →
-  </button>
-
-  <div class="sim-result" id="simResult">
-    <div class="pnl-label">Plus-value nette</div>
-    <div class="result-pnl">
-      <div class="pnl-value" id="pnlValue">—</div>
-      <div class="pnl-pct" id="pnlPct">—</div>
-    </div>
-    <div class="result-row"><span class="rl">Investi</span><span class="rv" id="resInvested">—</span></div>
-    <div class="result-row"><span class="rl">Prix achat</span><span class="rv" id="resBuyPrice">—</span></div>
-    <div class="result-row"><span class="rl">Quantité</span><span class="rv" id="resQty">—</span></div>
-    <div class="result-row"><span class="rl">Prix actuel</span><span class="rv" id="resCurrentPrice">—</span></div>
-    <div class="result-row"><span class="rl">Valeur actuelle</span><span class="rv" id="resCurrentValue">—</span></div>
-    <div class="result-row"><span class="rl">Durée détention</span><span class="rv" id="resDuration">—</span></div>
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <div class="ticker-track" id="tickerTrack">
+    <div style="display:flex;gap:0" id="tickerInner"></div>
+    <div style="display:flex;gap:0" id="tickerInner2"></div>
   </div>
 </div>
-```
 
+<!-- MOBILE CHIP LIST -->
+<div class="mobile-list" id="mobileList"></div>
+
+<!-- APP GRID -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div style="padding:12px 16px 8px;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border)">
+      TOP MARCHÉS
+    </div>
+    <!-- dynamique -->
   </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainArea">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◎</div>
+      <div>Sélectionne une crypto</div>
+      <div style="font-size:11px;color:var(--muted)">dans la liste à gauche</div>
+    </div>
+
+    <!-- COIN DETAIL (caché au départ) -->
+    <div id="coinDetail" style="display:none;flex-direction:column;flex:1;">
+      <div class="coin-hero">
+        <div class="hero-left">
+          <div class="hero-icon" id="heroIcon">₿</div>
+          <div>
+            <div class="hero-name" id="heroName">Bitcoin</div>
+            <div class="hero-sym" id="heroSym">BTC/USDT</div>
+          </div>
+        </div>
+        <div class="hero-price-wrap">
+          <div class="hero-price" id="heroPrice">—</div>
+          <div class="hero-chg-badge badge-g" id="heroBadge">—</div>
+        </div>
+      </div>
+
+      <div class="period-row">
+        <button class="p-btn" data-interval="1m" data-limit="120">2H</button>
+        <button class="p-btn" data-interval="1h" data-limit="168">1S</button>
+        <button class="p-btn active" data-interval="4h" data-limit="180">1M</button>
+        <button class="p-btn" data-interval="1d" data-limit="180">6M</button>
+        <button class="p-btn" data-interval="1d" data-limit="365">1A</button>
+        <button class="p-btn" data-interval="1d" data-limit="730">2A</button>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-container">
+          <div class="chart-overlay" id="chartOverlay"><div class="spinner"></div></div>
+          <canvas id="priceChart"></canvas>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat">
+          <div class="stat-label">Prix d'ouverture</div>
+          <div class="stat-val" id="statOpen">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Volume 24h</div>
+          <div class="stat-val" id="statVol">—</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Variation 24h</div>
+          <div class="stat-val" id="statChg">—</div>
+        </div>
+      </div>
+
+      <!-- SIMULATEUR -->
+      <div class="sim-section">
+        <div class="sim-header">💸 <span>Simulateur</span></div>
+        <div class="sim-grid">
+          <div class="field">
+            <label>Montant investi ($)</label>
+            <input type="number" id="simAmount" placeholder="1000" min="1">
+          </div>
+          <div class="field">
+            <label>Date d'achat</label>
+            <input type="date" id="simDate">
+          </div>
+        </div>
+        <button class="sim-submit" onclick="simulate()">Calculer la plus-value →</button>
+        <div class="sim-error" id="simError"></div>
+        <div class="sim-result" id="simResult">
+          <div class="pnl-block">
+            <div class="pnl-amount" id="pnlAmount">—</div>
+            <div class="pnl-pct" id="pnlPct">—</div>
+          </div>
+          <div class="result-lines">
+            <div class="r-line"><span class="rl">Investi</span><span class="rv" id="rInvest">—</span></div>
+            <div class="r-line"><span class="rl">Prix d'achat</span><span class="rv" id="rBuy">—</span></div>
+            <div class="r-line"><span class="rl">Quantité</span><span class="rv" id="rQty">—</span></div>
+            <div class="r-line"><span class="rl">Prix actuel</span><span class="rv" id="rNow">—</span></div>
+            <div class="r-line"><span class="rl">Valeur actuelle</span><span class="rv" id="rVal">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-// ─── DATES DE DÉBUT DES DONNÉES COINGECKO (fiable) ───────────────────────────
-const COIN_START = {
-  'bitcoin':     '2013-04-28',
-  'ethereum':    '2015-08-07',
-  'binancecoin': '2017-11-08',
-  'solana':      '2020-04-10',
-  'ripple':      '2013-08-04',
-  'cardano':     '2017-10-01',
-  'dogecoin':    '2013-12-15',
-  'avalanche-2': '2020-09-22',
-  'chainlink':   '2017-09-20',
-  'polkadot':    '2020-08-19',
-  'tron':        '2017-09-14',
-  'shiba-inu':   '2020-08-02',
-  'litecoin':    '2013-04-28',
-  'uniswap':     '2020-09-18',
-  'near':        '2020-10-14',
-};
-const TOP_CRYPTOS = Object.keys(COIN_START);
+// ════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════
+const COINS = [
+  { sym: 'BTCUSDT',  name: 'Bitcoin',   short: 'BTC', icon: '₿' },
+  { sym: 'ETHUSDT',  name: 'Ethereum',  short: 'ETH', icon: 'Ξ' },
+  { sym: 'BNBUSDT',  name: 'BNB',       short: 'BNB', icon: '◈' },
+  { sym: 'SOLUSDT',  name: 'Solana',    short: 'SOL', icon: '◎' },
+  { sym: 'XRPUSDT',  name: 'XRP',       short: 'XRP', icon: '✕' },
+  { sym: 'DOGEUSDT', name: 'Dogecoin',  short: 'DOGE',icon: 'Ð' },
+  { sym: 'ADAUSDT',  name: 'Cardano',   short: 'ADA', icon: '₳' },
+  { sym: 'AVAXUSDT', name: 'Avalanche', short: 'AVAX',icon: '▲' },
+  { sym: 'TRXUSDT',  name: 'TRON',      short: 'TRX', icon: '◉' },
+  { sym: 'LINKUSDT', name: 'Chainlink', short: 'LINK',icon: '⬡' },
+  { sym: 'DOTUSDT',  name: 'Polkadot',  short: 'DOT', icon: '●' },
+  { sym: 'MATICUSDT',name: 'Polygon',   short: 'MATIC',icon:'⬟' },
+  { sym: 'LTCUSDT',  name: 'Litecoin',  short: 'LTC', icon: 'Ł' },
+  { sym: 'UNIUSDT',  name: 'Uniswap',   short: 'UNI', icon: '🦄' },
+  { sym: 'ATOMUSDT', name: 'Cosmos',    short: 'ATOM',icon: '⚛' },
+];
 
-let allData = {};
-let selectedCoin = null;
+const BASE = 'https://api.binance.com/api/v3';
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+let prices = {};     // sym → { price, change }
+let selected = null; // coin object
 let chart = null;
-let currentDays = 365;
-let isRefreshing = false;
+let chartAbort = null;
+let currentInterval = '4h';
+let currentLimit = 180;
 
-// ─── FORMAT ───────────────────────────────────────────────────────────────────
-const fmtP = n => {
-  if (n == null) return '—';
-  if (n >= 10000) return '$' + Math.round(n).toLocaleString('fr-FR');
-  if (n >= 1)     return '$' + n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  if (n >= 0.01)  return '$' + n.toFixed(4);
+// ════════════════════════════════════════════════
+// FORMAT
+// ════════════════════════════════════════════════
+const fmt = (n) => {
+  if (n == null || isNaN(n)) return '—';
+  if (n >= 10000) return '$' + n.toLocaleString('fr-FR', {maximumFractionDigits:0});
+  if (n >= 100)   return '$' + n.toFixed(2);
+  if (n >= 1)     return '$' + n.toFixed(4);
+  if (n >= 0.001) return '$' + n.toFixed(5);
   return '$' + n.toFixed(8);
 };
-const fmtBig = n => {
-  if (!n) return '—';
-  if (n>=1e12) return '$'+(n/1e12).toFixed(2)+'T';
-  if (n>=1e9)  return '$'+(n/1e9).toFixed(1)+'B';
-  if (n>=1e6)  return '$'+(n/1e6).toFixed(1)+'M';
-  return '$'+n.toLocaleString();
-};
-const fmtDate = ts => new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'});
-const daysBetween = (d1,d2) => Math.round(Math.abs(d2-d1)/86400000);
-const durationStr = days => {
-  if (days<30) return days+' jours';
-  if (days<365) return Math.round(days/30)+' mois';
-  const y=Math.floor(days/365), m=Math.round((days%365)/30);
-  return y+' an'+(y>1?'s':'')+(m?' '+m+' mois':'');
+
+const fmtVol = (n) => {
+  if (n >= 1e9) return '$' + (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+  return '$' + n.toFixed(0);
 };
 
-// ─── FETCH PRIX ───────────────────────────────────────────────────────────────
-async function fetchTopCryptos() {
+const fmtDate = (ts) => new Date(ts).toLocaleDateString('fr-FR', {
+  day:'2-digit', month:'short', year:'numeric'
+});
+
+const clr = (v) => v >= 0 ? 'var(--green)' : 'var(--red)';
+const cls = (v) => v >= 0 ? 'pos' : 'neg';
+
+// ════════════════════════════════════════════════
+// FETCH TICKER (all prices at once)
+// ════════════════════════════════════════════════
+async function fetchTicker() {
   try {
-    const ids = TOP_CRYPTOS.join(',');
-    const r = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&per_page=20&page=1&sparkline=false&price_change_percentage=24h`);
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const data = await r.json();
-    data.forEach(c => { allData[c.id]=c; });
-    renderCards(data);
+    const syms = COINS.map(c => `"${c.sym}"`).join(',');
+    const res = await fetch(`${BASE}/ticker/24hr?symbols=[${syms}]`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+
+    data.forEach(d => {
+      prices[d.symbol] = {
+        price:  parseFloat(d.lastPrice),
+        change: parseFloat(d.priceChangePercent),
+        open:   parseFloat(d.openPrice),
+        vol:    parseFloat(d.quoteVolume),
+      };
+    });
+
+    renderSidebar();
+    renderTicker();
+    renderMobileList();
+
+    // update hero if coin selected
+    if (selected) updateHero();
+
     document.getElementById('lastUpdate').textContent =
-      new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    if (!selectedCoin && data.length) selectCoin(data[0].id);
-    else if (selectedCoin) { refreshHeader(); updateStats(allData[selectedCoin]); }
+      new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
   } catch(e) {
-    document.getElementById('lastUpdate').textContent = 'Erreur';
-    console.error(e);
+    console.error('Ticker error:', e);
   }
 }
 
-function renderCards(data) {
-  document.getElementById('cryptoList').innerHTML = data.map(c => {
-    const chg = c.price_change_percentage_24h ?? 0;
-    const pos = chg >= 0;
-    return `<div class="crypto-card ${selectedCoin===c.id?'active':''}" id="card-${c.id}" onclick="selectCoin('${c.id}')">
-      <div class="crypto-header-row">
-        <img class="crypto-img" src="${c.image}" alt="" loading="lazy">
-        <div><div class="crypto-name-card">${c.name}</div><div class="crypto-symbol">${c.symbol}</div></div>
+// ════════════════════════════════════════════════
+// RENDER SIDEBAR
+// ════════════════════════════════════════════════
+function renderSidebar() {
+  const sb = document.getElementById('sidebar');
+  const header = sb.querySelector('div');
+  sb.innerHTML = '';
+  sb.appendChild(header);
+
+  COINS.forEach(coin => {
+    const p = prices[coin.sym];
+    if (!p) return;
+    const isPos = p.change >= 0;
+    const row = document.createElement('div');
+    row.className = 'coin-row' + (selected?.sym === coin.sym ? ' active' : '');
+    row.innerHTML = `
+      <div class="coin-icon">${coin.icon}</div>
+      <div class="coin-info">
+        <div class="coin-name">${coin.name}</div>
+        <div class="coin-sym">${coin.short}</div>
       </div>
-      <div class="crypto-price-card">${fmtP(c.current_price)}</div>
-      <div class="crypto-change ${pos?'pos':'neg'}">${pos?'▲':'▼'} ${Math.abs(chg).toFixed(2)}% 24h</div>
+      <div class="coin-right">
+        <div class="coin-price">${fmt(p.price)}</div>
+        <div class="coin-chg ${cls(p.change)}">${isPos?'▲':'▼'} ${Math.abs(p.change).toFixed(2)}%</div>
+      </div>`;
+    row.onclick = () => selectCoin(coin);
+    sb.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════════════
+// RENDER TICKER
+// ════════════════════════════════════════════════
+function renderTicker() {
+  const makeItems = () => COINS.map(coin => {
+    const p = prices[coin.sym];
+    if (!p) return '';
+    const isPos = p.change >= 0;
+    return `<div class="ticker-item" onclick="selectCoin(${JSON.stringify(coin).replace(/"/g,'&quot;')})">
+      <span>${coin.icon}</span>
+      <span class="ticker-sym">${coin.short}</span>
+      <span class="ticker-price">${fmt(p.price)}</span>
+      <span class="ticker-chg ${cls(p.change)}">${isPos?'+':''}${p.change.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('tickerInner').innerHTML = makeItems();
+  document.getElementById('tickerInner2').innerHTML = makeItems();
+}
+
+// ════════════════════════════════════════════════
+// RENDER MOBILE LIST
+// ════════════════════════════════════════════════
+function renderMobileList() {
+  const ml = document.getElementById('mobileList');
+  ml.innerHTML = COINS.map(coin => {
+    const p = prices[coin.sym];
+    if (!p) return '';
+    return `<div class="mobile-coin-chip ${selected?.sym===coin.sym?'active':''}" onclick="selectCoin(${JSON.stringify(coin).replace(/"/g,'&quot;')})">
+      <div class="mcc-icon">${coin.icon}</div>
+      <div class="mcc-sym">${coin.short}</div>
+      <div class="mcc-chg ${cls(p.change)}">${p.change>=0?'+':''}${p.change.toFixed(1)}%</div>
     </div>`;
   }).join('');
 }
 
-// ─── SÉLECTION CRYPTO ────────────────────────────────────────────────────────
-async function selectCoin(id) {
-  document.querySelectorAll('.crypto-card').forEach(c=>c.classList.remove('active'));
-  const card = document.getElementById('card-'+id);
-  if (card) card.classList.add('active');
-  selectedCoin = id;
+// ════════════════════════════════════════════════
+// SELECT COIN
+// ════════════════════════════════════════════════
+function selectCoin(coin) {
+  if (typeof coin === 'string') {
+    coin = COINS.find(c => c.sym === coin);
+  }
+  if (!coin) return;
 
-  document.getElementById('statsRow').style.display = 'grid';
-  document.getElementById('periodTabs').style.display = 'flex';
+  selected = coin;
+
+  document.getElementById('emptyState').style.display = 'none';
+  const detail = document.getElementById('coinDetail');
+  detail.style.display = 'flex';
+
+  updateHero();
+  updateStats();
+
+  // Re-highlight rows
+  document.querySelectorAll('.coin-row').forEach(r => r.classList.remove('active'));
+  document.querySelectorAll('.mobile-coin-chip').forEach(r => r.classList.remove('active'));
+
+  renderSidebar();
+  renderMobileList();
+
+  // Clear previous simulator result
   document.getElementById('simResult').classList.remove('show');
   document.getElementById('simError').classList.remove('show');
 
-  // Date hint + min date
-  const minStr = COIN_START[id] || '2013-04-28';
-  const minDate = new Date(minStr);
-  const minFmt = minDate.toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('dateHint').textContent = `Données dispo depuis le ${minFmt}`;
-  document.getElementById('simDate').min = minStr;
-  document.getElementById('simDate').max = new Date().toISOString().split('T')[0];
-
-  refreshHeader();
-  updateStats(allData[id]);
-  await loadChart(id, currentDays);
+  // Load chart with current period
+  loadChart(coin.sym, currentInterval, currentLimit);
 }
 
-function refreshHeader() {
-  if (!selectedCoin || !allData[selectedCoin]) return;
-  const c = allData[selectedCoin];
-  const chg = c.price_change_percentage_24h ?? 0;
-  const pos = chg >= 0;
-  document.getElementById('selectedInfo').innerHTML =
-    `<div class="selected-crypto-info">
-      <img class="selected-img" src="${c.image}" alt="">
-      <div>
-        <div class="selected-name">${c.name}</div>
-        <div>
-          <span class="selected-price">${fmtP(c.current_price)}</span>
-          <span class="badge ${pos?'badge-pos':'badge-neg'}">${pos?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>
-        </div>
-      </div>
-    </div>`;
+// ════════════════════════════════════════════════
+// UPDATE HERO
+// ════════════════════════════════════════════════
+function updateHero() {
+  if (!selected) return;
+  const p = prices[selected.sym];
+  if (!p) return;
+
+  document.getElementById('heroIcon').textContent = selected.icon;
+  document.getElementById('heroName').textContent = selected.name;
+  document.getElementById('heroSym').textContent = selected.sym.replace('USDT', '') + '/USDT';
+
+  document.getElementById('heroPrice').textContent = fmt(p.price);
+
+  const badge = document.getElementById('heroBadge');
+  const isPos = p.change >= 0;
+  badge.textContent = `${isPos ? '▲ +' : '▼ '}${p.change.toFixed(2)}% 24h`;
+  badge.className = 'hero-chg-badge ' + (isPos ? 'badge-g' : 'badge-r');
 }
 
-function updateStats(c) {
-  document.getElementById('statMcap').textContent = fmtBig(c.market_cap);
-  document.getElementById('statVol').textContent = fmtBig(c.total_volume);
-  document.getElementById('statAth').textContent = fmtP(c.ath);
+// ════════════════════════════════════════════════
+// UPDATE STATS
+// ════════════════════════════════════════════════
+function updateStats() {
+  if (!selected) return;
+  const p = prices[selected.sym];
+  if (!p) return;
+
+  document.getElementById('statOpen').textContent = fmt(p.open);
+  document.getElementById('statVol').textContent = fmtVol(p.vol);
+  document.getElementById('statChg').textContent =
+    (p.change >= 0 ? '+' : '') + p.change.toFixed(2) + '%';
+  document.getElementById('statChg').className = 'stat-val ' + cls(p.change);
 }
 
-// ─── GRAPHIQUE ────────────────────────────────────────────────────────────────
-async function loadChart(id, days) {
-  currentDays = days;
-  document.querySelectorAll('.period-btn').forEach(b =>
-    b.classList.toggle('active', String(b.dataset.days) === String(days))
-  );
-  document.getElementById('chartLoading').style.display = 'flex';
-  document.getElementById('chartFooter').textContent = '';
+// ════════════════════════════════════════════════
+// LOAD CHART — Binance klines
+// ════════════════════════════════════════════════
+async function loadChart(sym, interval, limit) {
+  currentInterval = interval;
+  currentLimit = limit;
+
+  // Abort previous if any
+  if (chartAbort) chartAbort.abort();
+  chartAbort = new AbortController();
+
+  const overlay = document.getElementById('chartOverlay');
+  overlay.classList.add('show');
 
   try {
-    const daysParam = days === 'max' ? 'max' : days;
-    const interval  = days === 'max' ? 'weekly' : days <= 90 ? 'daily' : 'daily';
-    const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${daysParam}&interval=${interval}`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const data = await r.json();
-    if (!data.prices?.length) throw new Error('Pas de données');
-    drawChart(data.prices, allData[id], days);
+    const url = `${BASE}/klines?symbol=${sym}&interval=${interval}&limit=${limit}`;
+    const res = await fetch(url, { signal: chartAbort.signal });
+    if (!res.ok) throw new Error('klines ' + res.status);
+    const klines = await res.json();
+
+    const labels = klines.map(k => new Date(k[0]));
+    const closes = klines.map(k => parseFloat(k[4]));
+
+    drawChart(labels, closes);
   } catch(e) {
-    document.getElementById('chartFooter').textContent = '⚠ Erreur : '+e.message;
-    console.error('loadChart:',e);
+    if (e.name !== 'AbortError') console.error('Chart error:', e);
   } finally {
-    document.getElementById('chartLoading').style.display = 'none';
+    overlay.classList.remove('show');
   }
 }
 
-function drawChart(prices, coin, days) {
-  const labels = prices.map(p => new Date(p[0]));
-  const values = prices.map(p => p[1]);
-  const isGain = values[values.length-1] >= values[0];
-  const color  = isGain ? '#00e5a0' : '#ff4365';
-  const pct    = ((values[values.length-1]-values[0])/values[0]*100).toFixed(1);
-
+// ════════════════════════════════════════════════
+// DRAW CHART
+// ════════════════════════════════════════════════
+function drawChart(labels, values) {
   if (chart) { chart.destroy(); chart = null; }
-  const ctx = document.getElementById('priceChart').getContext('2d');
-  const grad = ctx.createLinearGradient(0,0,0,270);
-  grad.addColorStop(0, isGain?'rgba(0,229,160,0.2)':'rgba(255,67,101,0.2)');
-  grad.addColorStop(1,'rgba(0,0,0,0)');
 
-  let timeUnit = 'month';
-  if (days==='max') timeUnit='year';
-  else if (days<=30) timeUnit='day';
-  else if (days<=90) timeUnit='week';
+  const isUp = values[values.length - 1] >= values[0];
+  const color = isUp ? '#3dffa0' : '#ff4466';
+
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, 0, 260);
+  grad.addColorStop(0, isUp ? 'rgba(61,255,160,0.2)' : 'rgba(255,68,102,0.2)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+  // Time unit
+  let timeUnit = 'day';
+  if (currentInterval === '1m' || currentInterval === '5m') timeUnit = 'minute';
+  else if (currentInterval === '1h' || currentInterval === '4h') timeUnit = 'hour';
 
   chart = new Chart(ctx, {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels,
-      datasets:[{
-        data:values,
-        borderColor:color,
-        backgroundColor:grad,
-        borderWidth:2,
-        pointRadius:0,
-        pointHoverRadius:4,
-        pointHoverBackgroundColor:color,
-        fill:true,
-        tension:0.3
+      datasets: [{
+        data: values,
+        borderColor: color,
+        backgroundColor: grad,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: color,
+        fill: true,
+        tension: 0.2
       }]
     },
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      animation:{duration:350},
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:'#0d1421',
-          borderColor:'#1e2d45',
-          borderWidth:1,
-          titleColor:'#64748b',
-          bodyColor:'#e2e8f0',
-          titleFont:{family:'Space Mono',size:10},
-          bodyFont:{family:'Space Mono',size:12},
-          callbacks:{
-            title: items => fmtDate(items[0].parsed.x),
-            label: item  => ' '+fmtP(item.parsed.y)
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111827',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          titleColor: '#556070',
+          bodyColor: '#f0f4ff',
+          titleFont: { family: 'DM Mono', size: 10 },
+          bodyFont: { family: 'DM Mono', size: 13 },
+          padding: 10,
+          callbacks: {
+            title: (items) => {
+              const d = new Date(items[0].parsed.x);
+              return d.toLocaleDateString('fr-FR', {
+                day:'2-digit', month:'short', year:'numeric',
+                hour: timeUnit !== 'day' ? '2-digit' : undefined,
+                minute: timeUnit === 'minute' ? '2-digit' : undefined
+              });
+            },
+            label: (item) => '  ' + fmt(item.parsed.y)
           }
         }
       },
-      scales:{
-        x:{
-          type:'time',
-          time:{unit:timeUnit},
-          grid:{color:'rgba(255,255,255,0.04)',drawBorder:false},
-          ticks:{color:'#475569',font:{family:'Space Mono',size:9},maxTicksLimit:7}
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: timeUnit },
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          ticks: {
+            color: '#556070',
+            font: { family: 'DM Mono', size: 10 },
+            maxTicksLimit: 7,
+            maxRotation: 0
+          },
+          border: { display: false }
         },
-        y:{
-          position:'right',
-          grid:{color:'rgba(255,255,255,0.04)',drawBorder:false},
-          ticks:{
-            color:'#475569',
-            font:{family:'Space Mono',size:9},
-            callback: v => {
-              if (v>=10000) return '$'+Math.round(v/1000)+'k';
-              if (v>=1)     return '$'+v.toFixed(0);
-              return '$'+v.toFixed(4);
+        y: {
+          position: 'right',
+          grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+          ticks: {
+            color: '#556070',
+            font: { family: 'DM Mono', size: 10 },
+            callback: (v) => {
+              if (v >= 10000) return '$' + (v/1000).toFixed(0) + 'k';
+              if (v >= 1000) return '$' + v.toFixed(0);
+              if (v >= 1) return '$' + v.toFixed(2);
+              return '$' + v.toFixed(4);
             }
-          }
+          },
+          border: { display: false }
         }
       }
     }
   });
-  document.getElementById('chartFooter').textContent =
-    `Période : ${isGain?'+':''}${pct}%  ·  Source : CoinGecko`;
 }
 
-// ─── SIMULATEUR ───────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════
+// PERIOD TABS
+// ════════════════════════════════════════════════
+document.querySelector('.period-row').addEventListener('click', (e) => {
+  const btn = e.target.closest('.p-btn');
+  if (!btn || !selected) return;
+
+  document.querySelectorAll('.p-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const interval = btn.dataset.interval;
+  const limit = parseInt(btn.dataset.limit);
+  loadChart(selected.sym, interval, limit);
+});
+
+// ════════════════════════════════════════════════
+// SIMULATOR
+// ════════════════════════════════════════════════
 async function simulate() {
-  document.getElementById('simError').classList.remove('show');
-  document.getElementById('simResult').classList.remove('show');
+  const errEl = document.getElementById('simError');
+  const resEl = document.getElementById('simResult');
+  errEl.classList.remove('show');
+  resEl.classList.remove('show');
 
-  if (!selectedCoin) { showErr('Sélectionnez d\'abord une crypto.'); return; }
+  if (!selected) return showErr('Sélectionne une crypto d\'abord.');
 
-  const amount  = parseFloat(document.getElementById('simAmount').value);
+  const amount = parseFloat(document.getElementById('simAmount').value);
   const dateStr = document.getElementById('simDate').value;
 
-  if (!amount || amount<=0) { showErr('Entrez un montant valide.'); return; }
-  if (!dateStr)             { showErr('Entrez une date d\'achat.'); return; }
+  if (!amount || amount <= 0) return showErr('Entre un montant valide.');
+  if (!dateStr) return showErr('Entre une date d\'achat.');
 
   const buyDate = new Date(dateStr);
-  const today   = new Date();
-  const minDate = new Date(COIN_START[selectedCoin]||'2013-04-28');
+  const today = new Date();
 
-  if (buyDate >= today)    { showErr('La date doit être dans le passé.'); return; }
-  if (buyDate < minDate)   {
-    showErr(`Données disponibles depuis le ${minDate.toLocaleDateString('fr-FR')}.`);
-    return;
-  }
+  if (buyDate >= today) return showErr('La date doit être dans le passé.');
+  if (buyDate < new Date('2017-01-01')) return showErr('Données Binance disponibles depuis 2017.');
 
-  const btn = document.getElementById('simBtn');
-  btn.textContent = 'Calcul en cours…';
+  const btn = document.querySelector('.sim-submit');
   btn.disabled = true;
+  btn.textContent = 'Calcul en cours...';
 
   try {
-    // /market_chart/range → permet de chercher TOUTE la période depuis la création
-    const from = Math.floor(buyDate.getTime()/1000) - 86400;
-    const to   = Math.floor(today.getTime()/1000);
-    const url  = `https://api.coingecko.com/api/v3/coins/${selectedCoin}/market_chart/range?vs_currency=usd&from=${from}&to=${to}`;
+    // Get historical kline closest to buy date
+    const startMs = buyDate.getTime();
+    const endMs = startMs + 2 * 24 * 60 * 60 * 1000; // +2 days buffer
 
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    const data = await r.json();
+    const url = `${BASE}/klines?symbol=${selected.sym}&interval=1d&startTime=${startMs}&endTime=${endMs}&limit=3`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('API ' + res.status);
+    const klines = await res.json();
 
-    if (!data.prices || data.prices.length < 2)
-      throw new Error('Pas assez de données pour cette période.');
+    if (!klines.length) return showErr('Pas de données pour cette date. Essaie une date plus récente.');
 
-    // Point le plus proche de la date d'achat
-    const buyTs  = buyDate.getTime();
-    const closest = data.prices.reduce((a,b) =>
-      Math.abs(b[0]-buyTs) < Math.abs(a[0]-buyTs) ? b : a
-    );
+    const buyPrice = parseFloat(klines[0][4]); // close price
+    const currentPrice = prices[selected.sym]?.price;
 
-    const buyPrice     = closest[1];
-    const buyDateReal  = new Date(closest[0]);
-    const currentPrice = allData[selectedCoin].current_price;
-    const qty          = amount / buyPrice;
+    if (!buyPrice || !currentPrice) return showErr('Erreur de données.');
+
+    const qty = amount / buyPrice;
     const currentValue = qty * currentPrice;
-    const pnl          = currentValue - amount;
-    const pnlPct       = (pnl / amount) * 100;
-    const isPos        = pnl >= 0;
-    const dur          = daysBetween(buyDateReal, today);
-    const sym          = allData[selectedCoin].symbol.toUpperCase();
+    const pnl = currentValue - amount;
+    const pnlPct = (pnl / amount) * 100;
+    const isPos = pnl >= 0;
+    const sym = selected.short;
 
-    document.getElementById('pnlValue').textContent =
-      (isPos?'+':'')+pnl.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:2});
-    document.getElementById('pnlValue').className = 'pnl-value '+(isPos?'pos':'neg');
-    document.getElementById('pnlPct').textContent  =
-      (isPos?'▲ +':'▼ ')+pnlPct.toFixed(2)+'%';
-    document.getElementById('pnlPct').className    = 'pnl-pct '+(isPos?'pos':'neg');
+    // Display
+    document.getElementById('pnlAmount').textContent =
+      (isPos ? '+' : '') + pnl.toLocaleString('fr-FR', {style:'currency',currency:'USD',maximumFractionDigits:2});
+    document.getElementById('pnlAmount').className = 'pnl-amount ' + (isPos ? 'pos' : 'neg');
 
-    document.getElementById('resInvested').textContent    =
-      amount.toLocaleString('fr-FR',{style:'currency',currency:'USD'});
-    document.getElementById('resBuyPrice').textContent    =
-      fmtP(buyPrice)+' ('+buyDateReal.toLocaleDateString('fr-FR')+')';
-    document.getElementById('resQty').textContent         =
-      (qty<1?qty.toFixed(8):qty.toFixed(4))+' '+sym;
-    document.getElementById('resCurrentPrice').textContent = fmtP(currentPrice);
-    document.getElementById('resCurrentValue').textContent =
-      currentValue.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:2});
-    document.getElementById('resDuration').textContent    = durationStr(dur);
+    document.getElementById('pnlPct').textContent =
+      (isPos ? '▲ +' : '▼ ') + pnlPct.toFixed(2) + '%';
+    document.getElementById('pnlPct').className = 'pnl-pct ' + (isPos ? 'pos' : 'neg');
 
-    document.getElementById('simResult').classList.add('show');
+    document.getElementById('rInvest').textContent =
+      amount.toLocaleString('fr-FR', {style:'currency',currency:'USD'});
+    document.getElementById('rBuy').textContent = fmt(buyPrice);
+    document.getElementById('rQty').textContent =
+      qty < 1 ? qty.toFixed(6) + ' ' + sym : qty.toFixed(4) + ' ' + sym;
+    document.getElementById('rNow').textContent = fmt(currentPrice);
+    document.getElementById('rVal').textContent =
+      currentValue.toLocaleString('fr-FR', {style:'currency',currency:'USD',maximumFractionDigits:2});
+
+    resEl.classList.add('show');
+
   } catch(e) {
-    showErr('Erreur API : '+e.message+'. Réessayez dans quelques secondes.');
-    console.error('simulate:',e);
+    showErr('Erreur réseau. Réessaie.');
+    console.error(e);
   } finally {
-    btn.textContent = 'Calculer la plus-value →';
     btn.disabled = false;
+    btn.textContent = 'Calculer la plus-value →';
   }
 }
 
 function showErr(msg) {
   const el = document.getElementById('simError');
-  el.textContent = '⚠ '+msg;
+  el.textContent = '⚠ ' + msg;
   el.classList.add('show');
+  document.querySelector('.sim-submit').disabled = false;
+  document.querySelector('.sim-submit').textContent = 'Calculer la plus-value →';
 }
 
-// ─── PERIOD TABS ──────────────────────────────────────────────────────────────
-document.getElementById('periodTabs').addEventListener('click', e => {
-  const btn = e.target.closest('.period-btn');
-  if (!btn || !selectedCoin) return;
-  const v = btn.dataset.days;
-  loadChart(selectedCoin, v==='max'?'max':parseInt(v));
-});
+// ════════════════════════════════════════════════
+// DATE LIMITS
+// ════════════════════════════════════════════════
+const di = document.getElementById('simDate');
+di.max = new Date().toISOString().split('T')[0];
+di.min = '2017-07-01';
 
-// ─── REFRESH MANUEL ───────────────────────────────────────────────────────────
-async function manualRefresh() {
-  if (isRefreshing) return;
-  isRefreshing = true;
-  const btn = document.getElementById('refreshBtn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
-  await fetchTopCryptos();
-  if (selectedCoin) await loadChart(selectedCoin, currentDays);
-  btn.classList.remove('spinning');
-  btn.disabled = false;
-  isRefreshing = false;
+// ════════════════════════════════════════════════
+// CHART.JS DATE ADAPTER (inline — no CDN needed)
+// ════════════════════════════════════════════════
+// Use built-in adapter via chartjs-adapter-date-fns
+// Instead, we use a minimal custom time adapter
+(function() {
+  // Patch Chart.js to handle Date objects as timestamps
+  // We use the built-in 'time' scale with manual adapters
+  if (typeof Chart !== 'undefined' && Chart._adapters) {
+    const adapter = Chart._adapters._date.prototype;
+    // Override format
+    const origFormat = adapter.format;
+    adapter.format = function(time, fmt) {
+      try { return origFormat.call(this, time, fmt); }
+      catch(e) { return new Date(time).toLocaleDateString('fr-FR'); }
+    };
+  }
+})();
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+async function init() {
+  await fetchTicker();
+  // Auto-select BTC on load
+  selectCoin(COINS[0]);
+  // Refresh every 10 seconds
+  setInterval(fetchTicker, 10000);
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-fetchTopCryptos();
-setInterval(fetchTopCryptos, 90000);
-
-// PWA manifest
-const mf = {name:'CryptoScope',short_name:'CryptoScope',start_url:'./',display:'standalone',background_color:'#080c14',theme_color:'#080c14'};
-const mfLink = document.createElement('link');
-mfLink.rel = 'manifest';
-mfLink.href = URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:'application/json'}));
-document.head.appendChild(mfLink);
+// Load Chart.js time adapter from CDN then init
+(function loadAdapter() {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js';
+  s.onload = init;
+  s.onerror = init; // init anyway
+  document.head.appendChild(s);
+})();
 </script>
-
 </body>
 </html>
