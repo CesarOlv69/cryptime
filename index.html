@@ -58,7 +58,7 @@ header{
 @media(max-width:768px){.app{grid-template-columns:1fr;height:auto;}.sidebar{display:none;}}
 
 /* SIDEBAR */
-.sidebar{border-right:1px solid var(--border);overflow-y:auto;background:var(--s1);}
+
 .sidebar::-webkit-scrollbar{width:0;}
 .sidebar-head{padding:10px 16px 8px;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);}
 .coin-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.15s;position:relative;}
@@ -258,6 +258,19 @@ header{
 .pos-alert-msg.show{display:block;}
 
 /* Utils */
+.sidebar{border-right:1px solid var(--border);overflow-y:auto;background:var(--s1);display:flex;flex-direction:column;}
+.sidebar-search-wrap{padding:10px;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;background:var(--s1);z-index:5;}
+.search-box{display:flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;transition:border-color 0.15s;}
+.search-box:focus-within{border-color:var(--accent);}
+.search-icon{font-size:15px;color:var(--muted);flex-shrink:0;}
+#coinSearch{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:"DM Mono",monospace;font-size:12px;}
+#coinSearch::placeholder{color:var(--muted);}
+.search-clear{color:var(--muted);cursor:pointer;font-size:11px;flex-shrink:0;}
+.search-clear:hover{color:var(--text);}
+.sidebar-section-label{padding:7px 14px 5px;font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);}
+.search-count{padding:6px 14px;font-size:10px;color:var(--muted);border-bottom:1px solid var(--border);}
+.coin-fav{font-size:12px;color:var(--muted);cursor:pointer;padding:2px 5px;flex-shrink:0;margin-left:auto;transition:color 0.15s;}
+.coin-fav:hover,.coin-fav.starred{color:#f59e0b;}
 .pos{color:var(--green);}
 .neg{color:var(--red);}
 ::-webkit-scrollbar{width:4px;height:4px;}
@@ -282,7 +295,15 @@ header{
 <div class="mobile-list" id="mobileList"></div>
 
 <div class="app">
-  <div class="sidebar" id="sidebar"><div class="sidebar-head">TOP MARCHÉS</div></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-search-wrap">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="coinSearch" placeholder="Rechercher une crypto..." autocomplete="off" autocorrect="off" spellcheck="false">
+        <span class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none">✕</span>
+      </div>
+    </div>
+  </div>
 
   <div class="main">
     <div id="emptyState" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:13px;padding:40px;text-align:center;">
@@ -472,7 +493,7 @@ header{
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
-const COINS=[
+const DEFAULT_COINS=[
   {sym:'BTCUSDT', name:'Bitcoin',   short:'BTC',  icon:'₿'},
   {sym:'ETHUSDT', name:'Ethereum',  short:'ETH',  icon:'Ξ'},
   {sym:'BNBUSDT', name:'BNB',       short:'BNB',  icon:'◈'},
@@ -489,6 +510,27 @@ const COINS=[
   {sym:'ATOMUSDT',name:'Cosmos',    short:'ATOM', icon:'⚛'},
   {sym:'NEARUSDT',name:'NEAR',      short:'NEAR', icon:'◑'},
 ];
+let ALL_COINS=[...DEFAULT_COINS];
+let COINS=[...DEFAULT_COINS];
+let favorites=JSON.parse(localStorage.getItem('cryptime_favs')||'[]');
+function saveFavs(){localStorage.setItem('cryptime_favs',JSON.stringify(favorites));}
+function isFav(sym){return favorites.includes(sym);}
+function toggleFav(sym,e){
+  e.stopPropagation();
+  if(isFav(sym)) favorites=favorites.filter(f=>f!==sym);
+  else favorites.push(sym);
+  saveFavs();
+  renderSidebar();
+  renderMobileList();
+}
+function syncFavs(){
+  favorites.forEach(sym=>{
+    if(!COINS.find(c=>c.sym===sym)){
+      const f=ALL_COINS.find(c=>c.sym===sym);
+      if(f) COINS.push(f);
+    }
+  });
+}
 const BASE='https://api.binance.com/api/v3';
 
 // ═══════════════════════════════════════
@@ -519,6 +561,56 @@ const cls=(v)=>v>=0?'pos':'neg';
 // ═══════════════════════════════════════
 // TICKER FETCH
 // ═══════════════════════════════════════
+async function fetchAllCoins(){
+  try{
+    const res=await fetch('https://api.binance.com/api/v3/exchangeInfo');
+    if(!res.ok) return;
+    const data=await res.json();
+    ALL_COINS=data.symbols
+      .filter(s=>s.quoteAsset==='USDT'&&s.status==='TRADING')
+      .map(s=>{
+        const def=DEFAULT_COINS.find(d=>d.sym===s.symbol);
+        return def||{sym:s.symbol,name:s.baseAsset,short:s.baseAsset,icon:'◎'};
+      });
+    syncFavs();
+    populateCoinSelect();
+    console.log('Loaded',ALL_COINS.length,'pairs');
+  }catch(e){console.error('fetchAllCoins:',e);}
+}
+
+async function fetchPricesFor(syms){
+  try{
+    const q='['+syms.slice(0,20).map(s=>'"'+s+'"').join(',')+']';
+    const res=await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols='+encodeURIComponent(q));
+    if(!res.ok) return;
+    const data=await res.json();
+    data.forEach(d=>{
+      prices[d.symbol]={price:parseFloat(d.lastPrice),change:parseFloat(d.priceChangePercent),
+        open:parseFloat(d.openPrice),vol:parseFloat(d.quoteVolume),high:parseFloat(d.highPrice),low:parseFloat(d.lowPrice)};
+    });
+    const q2=document.getElementById('coinSearch')?.value||'';
+    if(q2) renderSidebar(q2);
+  }catch(e){}
+}
+
+function clearSearch(){
+  const inp=document.getElementById('coinSearch');
+  if(inp) inp.value='';
+  const clr=document.getElementById('searchClear');
+  if(clr) clr.style.display='none';
+  renderSidebar('');
+}
+
+function initSearch(){
+  const inp=document.getElementById('coinSearch');
+  if(!inp) return;
+  inp.addEventListener('input',function(){
+    const q=this.value.trim();
+    document.getElementById('searchClear').style.display=q?'block':'none';
+    renderSidebar(q);
+  });
+}
+
 async function fetchTicker(){
   try{
     const syms=COINS.map(c=>`"${c.sym}"`).join(',');
@@ -542,57 +634,128 @@ async function fetchTicker(){
 // ═══════════════════════════════════════
 // RENDER SIDEBAR
 // ═══════════════════════════════════════
-function renderSidebar(){
+function renderSidebar(query){
   const sb=document.getElementById('sidebar');
-  const head=sb.querySelector('.sidebar-head');
-  sb.innerHTML=''; sb.appendChild(head);
-  COINS.forEach(coin=>{
-    const p=prices[coin.sym]; if(!p) return;
-    const el=document.createElement('div');
-    el.className='coin-row'+(selected?.sym===coin.sym?' active':'');
-    el.innerHTML=`<div class="coin-icon">${coin.icon}</div>
-      <div class="coin-info"><div class="coin-name">${coin.name}</div><div class="coin-sym">${coin.short}</div></div>
-      <div class="coin-right"><div class="coin-price">${fmt(p.price)}</div><div class="coin-chg ${cls(p.change)}">${p.change>=0?'▲':'▼'} ${Math.abs(p.change).toFixed(2)}%</div></div>`;
-    el.onclick=()=>selectCoin(coin);
-    sb.appendChild(el);
+  const sw=sb.querySelector('.sidebar-search-wrap');
+  sb.innerHTML='';
+  if(sw) sb.appendChild(sw);
+  const q=(query||document.getElementById('coinSearch')?.value||'').toLowerCase().trim();
+  if(q){
+    const res=ALL_COINS.filter(c=>
+      c.name.toLowerCase().includes(q)||c.short.toLowerCase().includes(q)||c.sym.toLowerCase().includes(q)
+    ).slice(0,50);
+    const cnt=document.createElement('div');
+    cnt.className='search-count';
+    cnt.textContent=res.length+' résultat'+(res.length>1?'s':'');
+    sb.appendChild(cnt);
+    res.forEach(coin=>sb.appendChild(makeCoinRow(coin)));
+    // Fetch prices for unseen coins
+    const missing=res.filter(c=>!prices[c.sym]).map(c=>c.sym);
+    if(missing.length) fetchPricesFor(missing);
+  } else {
+    const favCoins=favorites.map(s=>COINS.find(c=>c.sym===s)).filter(Boolean);
+    const rest=COINS.filter(c=>!isFav(c.sym));
+    if(favCoins.length){
+      const lbl=document.createElement('div');
+      lbl.className='sidebar-section-label'; lbl.textContent='⭐ FAVORIS';
+      sb.appendChild(lbl);
+      favCoins.forEach(c=>sb.appendChild(makeCoinRow(c)));
+    }
+    const lbl2=document.createElement('div');
+    lbl2.className='sidebar-section-label';
+    lbl2.textContent=favCoins.length?'TOP MARCHÉS':'TOP MARCHÉS';
+    sb.appendChild(lbl2);
+    rest.forEach(c=>sb.appendChild(makeCoinRow(c)));
+  }
+}
+
+function makeCoinRow(coin){
+  const p=prices[coin.sym];
+  const el=document.createElement('div');
+  el.className='coin-row'+(selected&&selected.sym===coin.sym?' active':'');
+
+  const iconEl=document.createElement('div');
+  iconEl.className='coin-icon';
+  iconEl.textContent=coin.icon;
+
+  const infoEl=document.createElement('div');
+  infoEl.className='coin-info';
+  infoEl.innerHTML='<div class="coin-name">'+coin.name+'</div><div class="coin-sym">'+coin.short+'</div>';
+
+  const rightEl=document.createElement('div');
+  rightEl.className='coin-right';
+  if(p){
+    rightEl.innerHTML='<div class="coin-price">'+fmt(p.price)+'</div><div class="coin-chg '+(p.change>=0?'pos':'neg')+'">'+(p.change>=0?'▲':'▼')+' '+Math.abs(p.change).toFixed(2)+'%</div>';
+  } else {
+    rightEl.innerHTML='<div class="coin-price" style="color:var(--muted)">—</div>';
+  }
+
+  const favEl=document.createElement('span');
+  favEl.className='coin-fav'+(isFav(coin.sym)?' starred':'');
+  favEl.textContent=isFav(coin.sym)?'★':'☆';
+  favEl.title='Épingler';
+  favEl.addEventListener('click',function(e){ toggleFav(coin.sym,e); });
+
+  el.appendChild(iconEl);
+  el.appendChild(infoEl);
+  el.appendChild(rightEl);
+  el.appendChild(favEl);
+  el.onclick=()=>selectCoin(coin);
+  return el;
+}
+
+
+function renderTicker(){
+  const makeItems=()=>{
+    const wrap=document.createElement('div');
+    wrap.style.display='flex';
+    COINS.forEach(c=>{
+      const p=prices[c.sym]; if(!p) return;
+      const div=document.createElement('div');
+      div.className='ticker-item';
+      div.innerHTML='<span>'+c.icon+'</span><span class="ticker-sym">'+c.short+'</span><span class="ticker-price">'+fmt(p.price)+'</span><span class="ticker-chg '+cls(p.change)+'">'+(p.change>=0?'+':'')+p.change.toFixed(2)+'%</span>';
+      div.onclick=()=>selectCoin(c);
+      wrap.appendChild(div);
+    });
+    return wrap;
+  };
+  const t1=document.getElementById('t1');
+  const t2=document.getElementById('t2');
+  if(t1){t1.innerHTML='';t1.appendChild(makeItems());}
+  if(t2){t2.innerHTML='';t2.appendChild(makeItems());}
+}
+
+function renderMobileList(){
+  const favCoins=favorites.map(s=>COINS.find(c=>c.sym===s)).filter(Boolean);
+  const rest=COINS.filter(c=>!isFav(c.sym));
+  const ordered=[...favCoins,...rest];
+  const ml=document.getElementById('mobileList');
+  ml.innerHTML='';
+  ordered.forEach(c=>{
+    const p=prices[c.sym]; if(!p) return;
+    const div=document.createElement('div');
+    div.className='mcc'+(selected&&selected.sym===c.sym?' active':'');
+    if(isFav(c.sym)){
+      const star=document.createElement('div');
+      star.style.cssText='font-size:8px;color:#f59e0b;';
+      star.textContent='★';
+      div.appendChild(star);
+    }
+    const icon=document.createElement('div'); icon.className='mcc-icon'; icon.textContent=c.icon;
+    const sym=document.createElement('div'); sym.className='mcc-sym'; sym.textContent=c.short;
+    const chg=document.createElement('div');
+    chg.className='mcc-chg '+(p.change>=0?'pos':'neg');
+    chg.textContent=(p.change>=0?'+':'')+p.change.toFixed(1)+'%';
+    div.appendChild(icon); div.appendChild(sym); div.appendChild(chg);
+    div.onclick=()=>selectCoin(c);
+    ml.appendChild(div);
   });
 }
 
-// ═══════════════════════════════════════
-// RENDER TICKER
-// ═══════════════════════════════════════
-function renderTicker(){
-  const make=()=>COINS.map(c=>{
-    const p=prices[c.sym]; if(!p) return '';
-    return `<div class="ticker-item" onclick='selectCoin(${JSON.stringify(c)})'>
-      <span>${c.icon}</span><span class="ticker-sym">${c.short}</span>
-      <span class="ticker-price">${fmt(p.price)}</span>
-      <span class="ticker-chg ${cls(p.change)}">${p.change>=0?'+':''}${p.change.toFixed(2)}%</span>
-    </div>`;
-  }).join('');
-  document.getElementById('t1').innerHTML=make();
-  document.getElementById('t2').innerHTML=make();
-}
-
-// ═══════════════════════════════════════
-// RENDER MOBILE LIST
-// ═══════════════════════════════════════
-function renderMobileList(){
-  document.getElementById('mobileList').innerHTML=COINS.map(c=>{
-    const p=prices[c.sym]; if(!p) return '';
-    return `<div class="mcc ${selected?.sym===c.sym?'active':''}" onclick='selectCoin(${JSON.stringify(c)})'>
-      <div class="mcc-icon">${c.icon}</div><div class="mcc-sym">${c.short}</div>
-      <div class="mcc-chg ${cls(p.change)}">${p.change>=0?'+':''}${p.change.toFixed(1)}%</div>
-    </div>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════════
-// SELECT COIN
-// ═══════════════════════════════════════
 function selectCoin(coin){
-  if(typeof coin==='string') coin=COINS.find(c=>c.sym===coin);
+  if(typeof coin==='string') coin=COINS.find(c=>c.sym===coin)||ALL_COINS.find(c=>c.sym===coin);
   if(!coin) return;
+  if(!COINS.find(c=>c.sym===coin.sym)) COINS.push(coin);
   selected=coin;
   document.getElementById('emptyState').style.display='none';
   document.getElementById('coinDetail').style.display='flex';
@@ -1261,6 +1424,8 @@ async function init(){
   selectCoin(COINS[0]);
   setInterval(fetchTicker,10000);
   if(positions.length>0) startMonitor();
+  fetchAllCoins();
+  initSearch();
 }
 
 (function(){
