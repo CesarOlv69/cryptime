@@ -1017,14 +1017,13 @@ di.min='2017-07-01';
 // ═══════════════════════════════════════
 let positions = JSON.parse(localStorage.getItem('cryptime_positions') || '[]');
 let monitorInterval = null;
-let lastSignals = {}; // sym+horizon -> last signal
+let lastSignals = {};
 
-function savePositions(){
-  localStorage.setItem('cryptime_positions', JSON.stringify(positions));
-}
+function savePositions(){ localStorage.setItem('cryptime_positions', JSON.stringify(positions)); }
 
 function populateCoinSelect(){
   const sel = document.getElementById('posCoin');
+  if(!sel) return;
   sel.innerHTML = '<option value="">Choisir...</option>';
   COINS.forEach(c => {
     const opt = document.createElement('option');
@@ -1037,35 +1036,27 @@ function populateCoinSelect(){
 function addPosition(){
   const errEl = document.getElementById('posError');
   errEl.classList.remove('show');
-
   const sym = document.getElementById('posCoin').value;
   const amount = parseFloat(document.getElementById('posAmount').value);
   const buyPrice = parseFloat(document.getElementById('posBuyPrice').value);
   const sl = parseFloat(document.getElementById('posSL').value) || null;
   const tp = parseFloat(document.getElementById('posTP').value) || null;
   const horizon = document.getElementById('posHorizon').value;
-
-  if(!sym){ errEl.textContent='⚠ Choisis une crypto.'; errEl.classList.add('show'); return; }
-  if(!amount||amount<=0){ errEl.textContent='⚠ Entre un montant valide.'; errEl.classList.add('show'); return; }
-  if(!buyPrice||buyPrice<=0){ errEl.textContent='⚠ Entre un prix d'achat valide.'; errEl.classList.add('show'); return; }
-
+  if(!sym){ errEl.textContent='Choisis une crypto.'; errEl.classList.add('show'); return; }
+  if(!amount||amount<=0){ errEl.textContent='Entre un montant valide.'; errEl.classList.add('show'); return; }
+  if(!buyPrice||buyPrice<=0){ errEl.textContent="Entre un prix d'achat valide."; errEl.classList.add('show'); return; }
   const coin = COINS.find(c=>c.sym===sym);
   const qty = amount / buyPrice;
-
   const pos = {
-    id: Date.now(),
-    sym, name: coin.name, short: coin.short, icon: coin.icon,
+    id: Date.now(), sym, name: coin.name, short: coin.short, icon: coin.icon,
     amount, buyPrice, qty, sl, tp, horizon,
     createdAt: new Date().toISOString(),
     alertedSell: false, alertedTP: false, alertedSL: false
   };
-
   positions.push(pos);
   savePositions();
   renderPositions();
   startMonitor();
-
-  // Reset form
   document.getElementById('posCoin').value = '';
   document.getElementById('posAmount').value = '';
   document.getElementById('posBuyPrice').value = '';
@@ -1077,94 +1068,89 @@ function deletePosition(id){
   positions = positions.filter(p => p.id !== id);
   savePositions();
   renderPositions();
-  if(positions.length === 0 && monitorInterval){
-    clearInterval(monitorInterval);
-    monitorInterval = null;
-  }
+  if(positions.length === 0 && monitorInterval){ clearInterval(monitorInterval); monitorInterval = null; }
 }
 
 function renderPositions(){
   const list = document.getElementById('posList');
+  if(!list) return;
   if(positions.length === 0){
-    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Aucune position enregistrée.<br><span style=\"font-size:10px;\">Renseigne ta première position ci-dessus.</span></div>';
+    list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Aucune position.<br><span style="font-size:10px;">Renseigne ta première position ci-dessus.</span></div>';
+    updatePosTabBadge();
     return;
   }
+  const cards = positions.map(pos => buildPosCard(pos)).join('');
+  list.innerHTML = cards;
+  updatePosTabBadge();
+}
 
-  list.innerHTML = positions.map(pos => {
-    const curPrice = prices[pos.sym]?.price;
-    const hasPrice = curPrice != null;
-    const curVal = hasPrice ? pos.qty * curPrice : null;
-    const pnl = hasPrice ? curVal - pos.amount : null;
-    const pnlPct = hasPrice ? (pnl / pos.amount) * 100 : null;
-    const isPos = pnl >= 0;
+function buildPosCard(pos){
+  const curPrice = prices[pos.sym] ? prices[pos.sym].price : null;
+  const hasPrice = curPrice != null;
+  const curVal = hasPrice ? pos.qty * curPrice : null;
+  const pnl = hasPrice ? curVal - pos.amount : null;
+  const pnlPct = hasPrice ? (pnl / pos.amount) * 100 : null;
+  const isPos = pnl != null && pnl >= 0;
 
-    const sig = lastSignals[pos.sym + '_' + pos.horizon];
-    const sigLabel = sig ? {buy:'🟢 ACHAT', sell:'🔴 VENTE', neutral:'⚪ NEUTRE'}[sig] : '— en attente';
-    const sigColor = sig==='buy'?'var(--green)':sig==='sell'?'var(--red)':'#f59e0b';
+  const sig = lastSignals[pos.sym + '_' + pos.horizon] || null;
+  const sigLabel = sig ? ({buy:'🟢 ACHAT', sell:'🔴 VENTE', neutral:'⚪ NEUTRE'}[sig]) : '— en attente';
+  const sigColor = sig==='buy' ? 'var(--green)' : sig==='sell' ? 'var(--red)' : '#f59e0b';
 
-    // Alert state
-    const slHit = pos.sl && hasPrice && curPrice <= pos.sl;
-    const tpHit = pos.tp && hasPrice && curPrice >= pos.tp;
-    const sellSig = sig === 'sell';
+  const slHit = pos.sl && hasPrice && curPrice <= pos.sl;
+  const tpHit = pos.tp && hasPrice && curPrice >= pos.tp;
+  const sellSig = sig === 'sell';
 
-    let cardClass = 'pos-card';
-    if(slHit) cardClass += ' alerting';
-    else if(tpHit) cardClass += ' tp-hit';
+  let cardClass = 'pos-card';
+  if(slHit) cardClass += ' alerting';
+  else if(tpHit) cardClass += ' tp-hit';
 
-    let alertMsg = '';
-    if(slHit) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(255,68,102,0.12);color:var(--red);border:1px solid rgba(255,68,102,0.3)">🚨 Stop-Loss atteint — envisage de couper ta position</div>';
-    else if(tpHit) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(61,255,160,0.1);color:var(--green);border:1px solid rgba(61,255,160,0.25)">💰 Take-Profit atteint — tu peux sécuriser tes gains</div>';
-    else if(sellSig) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(255,68,102,0.08);color:#ff8fa3;border:1px solid rgba(255,68,102,0.2)">📉 Signal VENTE détecté — surveille ta position</div>';
+  let alertMsg = '';
+  if(slHit) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(255,68,102,0.12);color:var(--red);border:1px solid rgba(255,68,102,0.3);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:11px;font-weight:500;">🚨 Stop-Loss atteint — envisage de couper ta position</div>';
+  else if(tpHit) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(61,255,160,0.1);color:var(--green);border:1px solid rgba(61,255,160,0.25);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:11px;font-weight:500;">💰 Take-Profit atteint — tu peux sécuriser tes gains</div>';
+  else if(sellSig) alertMsg = '<div class="pos-alert-msg show" style="background:rgba(255,68,102,0.08);color:#ff8fa3;border:1px solid rgba(255,68,102,0.2);border-radius:6px;padding:8px 12px;margin-top:10px;font-size:11px;font-weight:500;">📉 Signal VENTE détecté — surveille ta position</div>';
 
-    const fmtPnl = pnl != null ? (isPos?'+':'')+pnl.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:2}) : '—';
-    const fmtPct = pnlPct != null ? (isPos?'▲ +':'▼ ')+pnlPct.toFixed(2)+'%' : '—';
+  const fmtPnl = pnl != null ? (isPos?'+':'')+pnl.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:2}) : '—';
+  const fmtPct = pnlPct != null ? (isPos?'▲ +':'▼ ')+pnlPct.toFixed(2)+'%' : '—';
+  const fmtVal = curVal != null ? curVal.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:0}) : '—';
+  const fmtInv = pos.amount.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:0});
+  const fmtQty = pos.qty < 1 ? pos.qty.toFixed(6) : pos.qty.toFixed(4);
+  const dateStr = new Date(pos.createdAt).toLocaleDateString('fr-FR');
 
-    return \`<div class="\${cardClass}" id="pos-\${pos.id}">
-      <div class="pos-card-header">
-        <div class="pos-coin-info">
-          <div class="pos-icon">\${pos.icon}</div>
-          <div>
-            <div class="pos-name">\${pos.name}</div>
-            <div class="pos-horizon">Signal \${pos.horizon} · \${new Date(pos.createdAt).toLocaleDateString('fr-FR')}</div>
-          </div>
-        </div>
-        <button class="pos-delete" onclick="deletePosition(\${pos.id})" title="Supprimer">✕</button>
-      </div>
+  const slTag = pos.sl ? '<span class="pos-level-tag" style="background:rgba(255,68,102,0.12);color:var(--red)">SL ' + fmt(pos.sl) + '</span>' : '';
+  const tpTag = pos.tp ? '<span class="pos-level-tag" style="background:rgba(61,255,160,0.1);color:var(--green)">TP ' + fmt(pos.tp) + '</span>' : '';
 
-      <div class="pos-metrics">
-        <div class="pos-metric">
-          <div class="pm-label">Investi</div>
-          <div class="pm-val">\${pos.amount.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:0})}</div>
-        </div>
-        <div class="pos-metric">
-          <div class="pm-label">Valeur actuelle</div>
-          <div class="pm-val">\${curVal!=null?curVal.toLocaleString('fr-FR',{style:'currency',currency:'USD',maximumFractionDigits:0}):'—'}</div>
-        </div>
-        <div class="pos-metric">
-          <div class="pm-label">Plus-value</div>
-          <div class="pm-val \${pnl!=null?(isPos?'pos':'neg'):''}">\${fmtPnl}</div>
-        </div>
-      </div>
+  return '<div class="' + cardClass + '" id="pos-' + pos.id + '">' +
+    '<div class="pos-card-header">' +
+      '<div class="pos-coin-info">' +
+        '<div class="pos-icon">' + pos.icon + '</div>' +
+        '<div>' +
+          '<div class="pos-name">' + pos.name + '</div>' +
+          '<div class="pos-horizon">Signal ' + pos.horizon + ' · ' + dateStr + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<button class="pos-delete" onclick="deletePosition(' + pos.id + ')" title="Supprimer">✕</button>' +
+    '</div>' +
+    '<div class="pos-metrics">' +
+      '<div class="pos-metric"><div class="pm-label">Investi</div><div class="pm-val">' + fmtInv + '</div></div>' +
+      '<div class="pos-metric"><div class="pm-label">Valeur</div><div class="pm-val">' + fmtVal + '</div></div>' +
+      '<div class="pos-metric"><div class="pm-label">P&amp;L</div><div class="pm-val ' + (pnl!=null?(isPos?'pos':'neg'):'') + '">' + fmtPnl + '</div></div>' +
+    '</div>' +
+    '<div class="pos-levels">' +
+      '<span class="pos-level-tag" style="background:rgba(77,166,255,0.12);color:var(--blue)">Achat ' + fmt(pos.buyPrice) + '</span>' +
+      slTag + tpTag +
+      '<span class="pos-level-tag" style="background:var(--s3);color:var(--muted2)">' + fmtQty + ' ' + pos.short + '</span>' +
+    '</div>' +
+    '<div class="pos-signal">' +
+      '<span class="pos-signal-label">Signal ' + pos.horizon + ' :</span>' +
+      '<span style="color:' + sigColor + ';font-weight:500;font-size:12px;">' + sigLabel + '</span>' +
+    '</div>' +
+    alertMsg +
+  '</div>';
+}
 
-      <div class="pos-levels">
-        <span class="pos-level-tag" style="background:rgba(77,166,255,0.12);color:var(--blue)">Achat \${fmt(pos.buyPrice)}</span>
-        \${pos.sl?'<span class="pos-level-tag" style="background:rgba(255,68,102,0.12);color:var(--red)">SL '+fmt(pos.sl)+'</span>':''}
-        \${pos.tp?'<span class="pos-level-tag" style="background:rgba(61,255,160,0.1);color:var(--green)">TP '+fmt(pos.tp)+'</span>':''}
-        <span class="pos-level-tag" style="background:var(--s3);color:var(--muted2)">\${pos.qty<1?pos.qty.toFixed(6):pos.qty.toFixed(4)} \${pos.short}</span>
-      </div>
-
-      <div class="pos-signal">
-        <span class="pos-signal-label">Signal \${pos.horizon} :</span>
-        <span style="color:\${sigColor};font-weight:500;font-size:12px;">\${sigLabel}</span>
-      </div>
-
-      \${alertMsg}
-    </div>\`;
-  }).join('');
-
-  // Update tab badge
+function updatePosTabBadge(){
   const alerts = positions.filter(p => {
-    const cur = prices[p.sym]?.price;
+    const cur = prices[p.sym] ? prices[p.sym].price : null;
     const sig = lastSignals[p.sym+'_'+p.horizon];
     return (p.sl&&cur&&cur<=p.sl)||(p.tp&&cur&&cur>=p.tp)||(sig==='sell');
   });
@@ -1173,77 +1159,57 @@ function renderPositions(){
 }
 
 // ═══════════════════════════════════════
-// MONITOR — check prices + signals every 30s
+// MONITOR
 // ═══════════════════════════════════════
 async function monitorPositions(){
   if(positions.length === 0) return;
-
-  // Fetch fresh signals for each unique sym+horizon combo
   const combos = [...new Set(positions.map(p=>p.sym+'|'+p.horizon))];
-
   for(const combo of combos){
     const [sym, horizon] = combo.split('|');
     try{
       const tfMap={'2h':['15m',60],'4h':['1h',100],'24h':['4h',100]};
       const [interval,limit] = tfMap[horizon] || ['1h',100];
-      const res = await fetch(\`\${BASE}/klines?symbol=\${sym}&interval=\${interval}&limit=\${limit}\`);
+      const res = await fetch(BASE+'/klines?symbol='+sym+'&interval='+interval+'&limit='+limit);
       if(!res.ok) continue;
       const k = await res.json();
       const closes = k.map(r=>parseFloat(r[4]));
-
-      const rsi = calcRSI(closes);
-      const macd = calcMACD(closes);
-      const bb = calcBB(closes);
-      const ema20 = calcEMA(closes,20);
-      const ema50 = calcEMA(closes,50);
+      const highs = k.map(r=>parseFloat(r[2]));
+      const lows = k.map(r=>parseFloat(r[3]));
       const cur = closes[closes.length-1];
-
+      const rsi=calcRSI(closes), macdR=calcMACD(closes), bb=calcBB(closes);
+      const ema20=calcEMA(closes,20), ema50=calcEMA(closes,50);
       let buy=0,sell=0,total=0;
       if(rsi!=null){total++;if(rsi<35)buy++;else if(rsi>65)sell++;}
-      if(macd){total++;if(macd.histogram>0&&macd.macd>macd.signal)buy++;else if(macd.histogram<0&&macd.macd<macd.signal)sell++;}
+      if(macdR){total++;if(macdR.histogram>0&&macdR.macd>macdR.signal)buy++;else if(macdR.histogram<0&&macdR.macd<macdR.signal)sell++;}
       if(bb){total++;if(cur<=bb.lower*1.01)buy++;else if(cur>=bb.upper*0.99)sell++;}
       if(ema20&&ema50){total++;if(ema20>ema50&&cur>ema20)buy++;else if(ema20<ema50&&cur<ema20)sell++;}
-
-      let sig = 'neutral';
+      let sig='neutral';
       if(buy>sell&&buy>=2) sig='buy';
       else if(sell>buy&&sell>=2) sig='sell';
-
-      const key = sym+'_'+horizon;
-      const prevSig = lastSignals[key];
-      lastSignals[key] = sig;
-
-      // Check each position for this combo
-      positions.forEach(pos => {
+      const key=sym+'_'+horizon;
+      const prevSig=lastSignals[key];
+      lastSignals[key]=sig;
+      positions.forEach(pos=>{
         if(pos.sym!==sym||pos.horizon!==horizon) return;
-        const curPrice = prices[pos.sym]?.price;
-
-        // Signal turned SELL (and wasn't already)
-        if(sig==='sell' && prevSig!=='sell' && !pos.alertedSell){
-          pos.alertedSell = true;
-          sendNotif('📉 '+pos.name+' — Signal VENTE '+horizon,
-            'Le signal technique passe VENTE. Envisage de couper ta position avant le SL.');
-          showInAppAlert('📉 '+pos.short+' : Signal VENTE détecté sur '+horizon+' — tu peux sortir avant le SL.', 'sell');
+        const curPrice = prices[pos.sym] ? prices[pos.sym].price : null;
+        if(sig==='sell'&&prevSig!=='sell'&&!pos.alertedSell){
+          pos.alertedSell=true;
+          sendNotif('📉 '+pos.name+' — Signal VENTE '+horizon,'Le signal technique passe VENTE. Envisage de couper ta position.');
+          showInAppAlert('📉 '+pos.short+' : Signal VENTE détecté sur '+horizon+' — tu peux sortir avant le SL.','sell');
         }
-
-        // TP hit
-        if(pos.tp && curPrice && curPrice>=pos.tp && !pos.alertedTP){
-          pos.alertedTP = true;
-          sendNotif('💰 '+pos.name+' — Take-Profit atteint !',
-            'Prix actuel '+fmt(curPrice)+' a atteint ton TP '+fmt(pos.tp)+'. Sécurise tes gains !');
-          showInAppAlert('💰 '+pos.short+' a atteint ton Take-Profit à '+fmt(pos.tp)+' !', 'tp');
+        if(pos.tp&&curPrice&&curPrice>=pos.tp&&!pos.alertedTP){
+          pos.alertedTP=true;
+          sendNotif('💰 '+pos.name+' — Take-Profit atteint !','Prix actuel '+fmt(curPrice)+' a atteint ton TP '+fmt(pos.tp)+'.');
+          showInAppAlert('💰 '+pos.short+' a atteint ton Take-Profit à '+fmt(pos.tp)+' !','tp');
         }
-
-        // SL hit
-        if(pos.sl && curPrice && curPrice<=pos.sl && !pos.alertedSL){
-          pos.alertedSL = true;
-          sendNotif('🚨 '+pos.name+' — Stop-Loss atteint !',
-            'Prix actuel '+fmt(curPrice)+' a touché ton SL '+fmt(pos.sl)+'. Coupe ta position !');
-          showInAppAlert('🚨 '+pos.short+' a atteint ton Stop-Loss à '+fmt(pos.sl)+' !', 'sl');
+        if(pos.sl&&curPrice&&curPrice<=pos.sl&&!pos.alertedSL){
+          pos.alertedSL=true;
+          sendNotif('🚨 '+pos.name+' — Stop-Loss atteint !','Prix actuel '+fmt(curPrice)+' a touché ton SL '+fmt(pos.sl)+'.');
+          showInAppAlert('🚨 '+pos.short+' a atteint ton Stop-Loss à '+fmt(pos.sl)+' !','sl');
         }
       });
-    }catch(e){ console.error('Monitor error:', sym, e); }
+    }catch(e){ console.error('Monitor:', sym, e); }
   }
-
   savePositions();
   renderPositions();
 }
@@ -1252,43 +1218,39 @@ async function monitorPositions(){
 // NOTIFICATIONS
 // ═══════════════════════════════════════
 function requestNotifPermission(){
-  if(!('Notification' in window)){ return; }
+  if(!('Notification' in window)) return;
   Notification.requestPermission().then(perm=>{
     document.getElementById('notifPrompt').style.display = perm==='granted'?'none':'flex';
-    if(perm==='granted') sendNotif('🎯 Cryptime','Notifications activées ! Tu seras alerté en temps réel.');
+    if(perm==='granted') sendNotif('🎯 Cryptime','Notifications activées !');
   });
 }
 
 function sendNotif(title, body){
   if(typeof Notification==='undefined') return;
   if(Notification.permission==='granted'){
-    try{ new Notification(title, {body, icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="%2306080f"/><text y="68" x="50" text-anchor="middle" font-size="55" fill="%23e8ff47">◈</text></svg>'}); }
-    catch(e){}
+    try{ new Notification(title,{body}); }catch(e){}
   }
 }
 
 function showInAppAlert(msg, type){
   const banner = document.getElementById('alertBanner');
+  if(!banner) return;
   banner.textContent = msg;
   banner.className = 'alert-banner alert-'+type;
   banner.style.display = 'block';
-  // Show tab if not active
-  const posTab = document.getElementById('tab-positions');
-  // auto-hide after 10s
   setTimeout(()=>{ banner.style.display='none'; }, 10000);
 }
 
 function checkNotifStatus(){
   if(!('Notification' in window)) return;
-  if(Notification.permission !== 'granted'){
-    document.getElementById('notifPrompt').style.display = 'flex';
-  }
+  const prompt = document.getElementById('notifPrompt');
+  if(prompt) prompt.style.display = Notification.permission!=='granted' ? 'flex' : 'none';
 }
 
 function startMonitor(){
   if(monitorInterval) return;
+  monitorPositions();
   monitorInterval = setInterval(monitorPositions, 30000);
-  monitorPositions(); // immediate first check
 }
 
 // ═══════════════════════════════════════
